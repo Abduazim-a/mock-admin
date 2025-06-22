@@ -1,0 +1,97 @@
+<!--
+This will be the ADMIN site HTML + JS (GitHub-ready)
+File: admin/index.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D&A Admin Panel</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; color: #4b0082; background: white; }
+    input, button { padding: 10px; margin: 10px 0; width: 100%; max-width: 400px; }
+    h2 { color: #4b0082; }
+  </style>
+</head>
+<body>
+  <h2>Admin Login</h2>
+  <input type="text" id="adminPhone" placeholder="Phone (e.g. +998...)" />
+  <input type="password" id="adminPassword" placeholder="Password" />
+  <button onclick="adminLogin()">Login</button>
+  <div id="adminPanel" style="display:none">
+    <h2>Admin Panel</h2>
+    <input id="slot" placeholder="Add Time Slot (e.g. 10:00 AM)" />
+    <button onclick="addTimeSlot()">Add Slot</button><br>
+
+    <input id="studentPhone" placeholder="Add Student Number" />
+    <button onclick="addStudent()">Add Student</button><br>
+
+    <input id="newAdmin" placeholder="Add New Admin Phone" />
+    <button onclick="addAdmin()">Add Admin</button><br>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "...",
+      appId: "..."
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const adminWhitelist = ['+998777771968', '+998910122462', '+998959637101'];
+
+    async function adminLogin() {
+      const phone = document.getElementById('adminPhone').value;
+      const password = document.getElementById('adminPassword').value;
+
+      try {
+        const userRecord = await auth.signInWithEmailAndPassword(`${phone}@dna.uz`, password);
+        const doc = await db.collection('users').doc(phone).get();
+        if (doc.exists && doc.data().role === 'admin') {
+          document.getElementById('adminPanel').style.display = 'block';
+        } else {
+          alert('Not authorized as admin.');
+        }
+      } catch (err) {
+        alert('Login failed: ' + err.message);
+      }
+    }
+
+    async function addTimeSlot() {
+      const time = document.getElementById('slot').value;
+      const week = getCurrentWeek();
+      await db.collection('slots').add({ time, bookedBy: null, week });
+      alert('Slot added');
+    }
+
+    async function addStudent() {
+      const phone = document.getElementById('studentPhone').value;
+      const week = getCurrentWeek();
+      await db.collection('eligiblePhones').doc(week).set({ phones: firebase.firestore.FieldValue.arrayUnion(phone) }, { merge: true });
+      alert('Student added');
+    }
+
+    async function addAdmin() {
+      const phone = document.getElementById('newAdmin').value;
+      await db.collection('users').doc(phone).set({ role: 'admin' }, { merge: true });
+      alert('Admin added');
+    }
+
+    function getCurrentWeek() {
+      const today = new Date();
+      const first = new Date(today.getFullYear(), 0, 1);
+      const week = Math.ceil((((today - first) / 86400000) + first.getDay() + 1) / 7);
+      return `${today.getFullYear()}-W${week}`;
+    }
+  </script>
+</body>
+</html>
